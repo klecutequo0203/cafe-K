@@ -73,86 +73,99 @@
 
     <script>
         const container = document.getElementById("orders-container");
-        let ws; // Khai báo biến ws ở ngoài cùng
+        let ws; 
 
-        // Tạo một hàm chuyên làm nhiệm vụ kết nối
+        // 1. MỞ KÉT SẮT MINI LẤY ĐƠN CŨ (Nếu trống thì tạo mảng rỗng)
+        let activeOrders = JSON.parse(localStorage.getItem('k_coffee_active_orders')) || [];
+
+        // 2. HÀM CHUYÊN VẼ TỜ BILL (Tái sử dụng cho cả đơn cũ lẫn đơn mới)
+        function renderTicket(orderData, orderId) {
+            const ticket = document.createElement("div");
+            ticket.className = "order-ticket";
+            ticket.id = "order-" + orderId; // Đặt tên cho tờ Bill để lát dễ tìm mà xé
+            
+            const timeStr = new Date(orderData.timestamp).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'});
+
+            let itemsHtml = "";
+            orderData.items.forEach(item => {
+                itemsHtml += `<li>🔸 ${item.quantity} x ${item.name}</li>`;
+            });
+
+            let noteHtml = "";
+            if (orderData.note && orderData.note.trim() !== "") {
+                noteHtml = `<div style="background: #f39c12; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; font-weight: bold; font-size: 16px;">📝 Ghi chú: ${orderData.note}</div>`;
+            }
+
+            ticket.innerHTML = `
+                <div class="order-header">
+                    <span>🛎️ ${orderData.table}</span>
+                    <span style="font-size: 14px; color: #7f8c8d;">${timeStr}</span>
+                </div>
+                ${noteHtml}
+                <ul class="order-items">
+                    ${itemsHtml}
+                </ul>
+                <button class="btn-done" onclick="finishOrder('${orderId}')">ĐÃ LÀM XONG ✔️</button>
+            `;
+
+            container.appendChild(ticket);
+        }
+
+        // 3. VỪA MỞ WEB LÊN LÀ VẼ NGAY LẠI CÁC ĐƠN CŨ ĐANG DANG DỞ
+        activeOrders.forEach(order => renderTicket(order.data, order.id));
+
+        // 4. HÀM KẾT NỐI BỘ ĐÀM
         function connectWebSocket() {
             ws = new WebSocket("wss://cafe-k.onrender.com/ws");
 
-            ws.onopen = () => {
-                console.log("✅ Quầy pha chế đã trực tuyến!");
-            };
+            ws.onopen = () => console.log("✅ Quầy pha chế đã trực tuyến!");
 
-            // Khi có tin nhắn từ máy chủ dội về (giữ nguyên code cũ của bạn)
+            // KHI NHẬN ĐƯỢC ĐƠN MỚI TỪ NHÂN VIÊN
             ws.onmessage = function(event) {
                 const data = JSON.parse(event.data); 
                 
                 if (data.type === "NEW_ORDER") {
-                    const ticket = document.createElement("div");
-                    ticket.className = "order-ticket";
+                    // Tạo một cái mã ID độc nhất vô nhị (dựa theo thời gian) cho tờ Bill này
+                    const orderId = Date.now().toString(); 
                     
-                    const timeStr = new Date(data.timestamp).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'});
+                    // Cất vào két sắt mini
+                    activeOrders.push({ id: orderId, data: data });
+                    localStorage.setItem('k_coffee_active_orders', JSON.stringify(activeOrders));
 
-                    let itemsHtml = "";
-                    data.items.forEach(item => {
-                        itemsHtml += `<li>🔸 ${item.quantity} x ${item.name}</li>`;
-                    });
-
-                    // Hiện ghi chú nếu có
-                    let noteHtml = "";
-                    if (data.note && data.note.trim() !== "") {
-                        noteHtml = `<div style="background: #f39c12; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; font-weight: bold; font-size: 16px;">📝 Ghi chú: ${data.note}</div>`;
-                    }
-
-                    ticket.innerHTML = `
-                        <div class="order-header">
-                            <span>🛎️ ${data.table}</span>
-                            <span style="font-size: 14px; color: #7f8c8d;">${timeStr}</span>
-                        </div>
-                        ${noteHtml}
-                        <ul class="order-items">
-                            ${itemsHtml}
-                        </ul>
-                        <button class="btn-done" onclick="this.parentElement.remove()">ĐÃ LÀM XONG ✔️</button>
-                    `;
-
-                    container.appendChild(ticket);
+                    // Vẽ ra màn hình
+                    renderTicket(data, orderId);
                 }
             };
 
-            // 🔴 NẾU BỊ ĐỨT KẾT NỐI -> TỰ ĐỘNG GỌI LẠI SAU 3 GIÂY
             ws.onclose = () => {
-                console.log("⚠️ Mất kết nối tới máy chủ. Đang thử kết nối lại...");
+                console.log("⚠️ Mất kết nối. Đang gọi lại...");
                 setTimeout(connectWebSocket, 3000); 
             };
-
-            // 🔴 NẾU CÓ LỖI MẠNG -> ĐÓNG KẾT NỐI ĐỂ KÍCH HOẠT TỰ ĐỘNG GỌI LẠI
-            ws.onerror = (error) => {
-                console.error("❌ Lỗi mạng WebSocket:", error);
-                ws.close();
-            };
+            ws.onerror = (error) => ws.close();
         }
 
-        // Kích hoạt máy bơm chạy lần đầu tiên khi mở web
         connectWebSocket();
 
-        
-        
+        // 5. KHI BẤM NÚT "ĐÃ LÀM XONG"
+        window.finishOrder = function(orderId) {
+            // Xé tờ bill trên màn hình
+            const ticketElement = document.getElementById("order-" + orderId);
+            if(ticketElement) ticketElement.remove();
 
-        // Hàm tính tổng doanh thu và hiển thị ra chữ
+            // Lấy cục tẩy xóa khỏi két sắt mini
+            activeOrders = activeOrders.filter(order => order.id !== orderId);
+            localStorage.setItem('k_coffee_active_orders', JSON.stringify(activeOrders));
+        }
+
+        // 6. HÀM TÍNH DOANH THU (Giữ nguyên)
         async function getRevenue() {
             try {
                 const response = await fetch("https://cafe-k.onrender.com/api/revenue");
                 if (response.ok) {
                     const data = await response.json();
                     const total = data.total_revenue || 0; 
-                    
-                    // Điền số tiền vào khung
                     document.getElementById("revenue-amount").innerText = total.toLocaleString("vi-VN");
-                    
-                    // Hiển thị khung chữ "Doanh thu: ..." lên màn hình
                     document.getElementById("revenue-text").style.display = "block";
-                    
                 } else {
                     alert("❌ Lỗi: Không thể lấy được dữ liệu chốt sổ!");
                 }
