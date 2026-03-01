@@ -118,3 +118,10 @@ button {
     font-size: 15px;
     box-sizing: border-box; /* Giúp input không bị tràn ra ngoài khung */
 }
+
+/* Ép buộc điện thoại hiển thị đúng thứ tự từ trên xuống dưới */
+@media (max-width: 768px) {
+    .app-container {
+        flex-direction: column !important;
+    }
+}
