@@ -87,21 +87,28 @@ function updateCartUI() {
     document.getElementById("total-price").innerText = calculateTotal().toLocaleString("vi-VN");
 }
 
-// Gửi order qua WebSocket
-function sendOrder(tableName) {
+// Gửi order qua WebSocket (Đã cập nhật tự động lấy số bàn)
+function sendOrder() {
     if (cart.length === 0) return alert("Chưa chọn món nào!");
     
-    // Đã bổ sung 'totalAmount' và 'timestamp' vào gói hàng gửi đi
+    // Lấy giá trị từ ô chọn tầng và chọn số bàn
+    const floor = document.getElementById("floor-select").value;
+    const tableNum = document.getElementById("table-select").value;
+    
+    // Ghép lại thành tên bàn. VD: "Trệt - Bàn 3"
+    const finalTableName = `${floor} - Bàn ${tableNum}`; 
+    
     const orderData = { 
         type: "NEW_ORDER", 
-        table: tableName, 
+        table: finalTableName, 
         items: cart,
-        totalAmount: calculateTotal(), // Python cần cái này để ghi sổ!
-        timestamp: new Date().toISOString() // Barista cần cái này để hiện giờ!
+        totalAmount: calculateTotal(), 
+        timestamp: new Date().toISOString() 
     };
     
     ws.send(JSON.stringify(orderData));
-    alert("Đã gửi đơn thành công!");
+    alert(`Đã gửi đơn của ${finalTableName} thành công!`);
+    
     cart = [];
     updateCartUI();
 }

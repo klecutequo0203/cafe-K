@@ -28,12 +28,34 @@
         </div>
 
         <div class="right-panel cart-box">
-            <h2>Giỏ Hàng (Bàn 1)</h2>
+            <h2>Giỏ Hàng</h2>
+            
+            <div class="table-selector">
+                <label>Vị trí:</label>
+                <select id="floor-select">
+                    <option value="Trệt">Trệt</option>
+                    <option value="Lầu">Lầu</option>
+                </select>
+                
+                <label>Bàn:</label>
+                <select id="table-select">
+                    <option value="1">Số 1</option>
+                    <option value="2">Số 2</option>
+                    <option value="3">Số 3</option>
+                    <option value="4">Số 4</option>
+                    <option value="5">Số 5</option>
+                    <option value="6">Số 6</option>
+                    <option value="7">Số 7</option>
+                    <option value="8">Số 8</option>
+                    <option value="9">Số 9</option>
+                    <option value="10">Số 10</option>
+                </select>
+            </div>
             <ul id="cart-list">
                 </ul>
             <div class="cart-summary">
                 <h3>Tổng cộng: <span id="total-price" style="color: #e74c3c;">0</span> VNĐ</h3>
-                <button onclick="sendOrder('Bàn 1')" class="btn-send">GỬI XUỐNG QUẦY PHA CHẾ</button>
+                <button onclick="sendOrder()" class="btn-send">GỬI XUỐNG QUẦY PHA CHẾ</button>
             </div>
         </div>
 
