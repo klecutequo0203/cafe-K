@@ -105,7 +105,7 @@ function updateCartUI() {
     document.getElementById("total-price").innerText = calculateTotal().toLocaleString("vi-VN");
 }
 
-// Gửi order qua WebSocket (Đã cập nhật tính năng Ghi chú)
+// Gửi order qua WebSocket
 function sendOrder() {
     if (cart.length === 0) return alert("Chưa chọn món nào!");
     
@@ -113,7 +113,7 @@ function sendOrder() {
     const tableNum = document.getElementById("table-select").value;
     const finalTableName = `${floor} - Bàn ${tableNum}`; 
     
-    // Lấy nội dung khách dặn dò
+    // Lấy nội dung ghi chú
     const noteContent = document.getElementById("order-note").value;
     
     const orderData = { 
@@ -122,15 +122,17 @@ function sendOrder() {
         items: cart,
         totalAmount: calculateTotal(), 
         timestamp: new Date().toISOString(),
-        note: noteContent // Bỏ thêm tờ giấy ghi chú vào gói hàng!
+        note: noteContent 
     };
     
     ws.send(JSON.stringify(orderData));
     alert(`Đã gửi đơn của ${finalTableName} thành công!`);
     
+    // Reset lại giỏ hàng và giao diện
     cart = [];
     updateCartUI();
-    // Xóa trắng ô ghi chú để đón khách tiếp theo
+    
+    // 🔴 DÒNG LỆNH QUAN TRỌNG: Tự động xóa trắng ô ghi chú
     document.getElementById("order-note").value = "";
 }
 
