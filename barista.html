@@ -72,48 +72,72 @@
     </div>
 
     <script>
-        const ws = new WebSocket("wss://cafe-k.onrender.com/ws");
         const container = document.getElementById("orders-container");
+        let ws; // Khai báo biến ws ở ngoài cùng
 
-        ws.onopen = () => console.log("✅ Quầy pha chế đã trực tuyến!");
+        // Tạo một hàm chuyên làm nhiệm vụ kết nối
+        function connectWebSocket() {
+            ws = new WebSocket("wss://cafe-k.onrender.com/ws");
 
-        ws.onmessage = function(event) {
-            const data = JSON.parse(event.data); 
-            
-            if (data.type === "NEW_ORDER") {
-                const ticket = document.createElement("div");
-                ticket.className = "order-ticket";
+            ws.onopen = () => {
+                console.log("✅ Quầy pha chế đã trực tuyến!");
+            };
+
+            // Khi có tin nhắn từ máy chủ dội về (giữ nguyên code cũ của bạn)
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data); 
                 
-                const timeStr = new Date(data.timestamp).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'});
+                if (data.type === "NEW_ORDER") {
+                    const ticket = document.createElement("div");
+                    ticket.className = "order-ticket";
+                    
+                    const timeStr = new Date(data.timestamp).toLocaleTimeString("vi-VN", {hour: '2-digit', minute:'2-digit'});
 
-                let itemsHtml = "";
-                data.items.forEach(item => {
-                    itemsHtml += `<li>🔸 ${item.quantity} x ${item.name}</li>`;
-                });
+                    let itemsHtml = "";
+                    data.items.forEach(item => {
+                        itemsHtml += `<li>🔸 ${item.quantity} x ${item.name}</li>`;
+                    });
 
-                // (Nằm trong file barista.html)
-                // Tạo đoạn mã HTML cho ghi chú (nếu có chữ thì mới hiện)
-                let noteHtml = "";
-                if (data.note && data.note.trim() !== "") {
-                    noteHtml = `<div style="background: #f39c12; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; font-weight: bold; font-size: 16px;">
-                        📝 Ghi chú: ${data.note}
-                    </div>`;
+                    // Hiện ghi chú nếu có
+                    let noteHtml = "";
+                    if (data.note && data.note.trim() !== "") {
+                        noteHtml = `<div style="background: #f39c12; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; font-weight: bold; font-size: 16px;">📝 Ghi chú: ${data.note}</div>`;
+                    }
+
+                    ticket.innerHTML = `
+                        <div class="order-header">
+                            <span>🛎️ ${data.table}</span>
+                            <span style="font-size: 14px; color: #7f8c8d;">${timeStr}</span>
+                        </div>
+                        ${noteHtml}
+                        <ul class="order-items">
+                            ${itemsHtml}
+                        </ul>
+                        <button class="btn-done" onclick="this.parentElement.remove()">ĐÃ LÀM XONG ✔️</button>
+                    `;
+
+                    container.appendChild(ticket);
                 }
+            };
 
-                ticket.innerHTML = `
-                    <div class="order-header">
-                        <span>🛎️ ${data.table}</span>
-                        <span style="font-size: 14px; color: #7f8c8d;">${timeStr}</span>
-                    </div>
-                    ${noteHtml} <ul class="order-items">
-                        ${itemsHtml}
-                    </ul>
-                    <button class="btn-done" onclick="this.parentElement.remove()">ĐÃ LÀM XONG ✔️</button>
-                `;
+            // 🔴 NẾU BỊ ĐỨT KẾT NỐI -> TỰ ĐỘNG GỌI LẠI SAU 3 GIÂY
+            ws.onclose = () => {
+                console.log("⚠️ Mất kết nối tới máy chủ. Đang thử kết nối lại...");
+                setTimeout(connectWebSocket, 3000); 
+            };
 
-                container.appendChild(ticket);
-            }
-        };
+            // 🔴 NẾU CÓ LỖI MẠNG -> ĐÓNG KẾT NỐI ĐỂ KÍCH HOẠT TỰ ĐỘNG GỌI LẠI
+            ws.onerror = (error) => {
+                console.error("❌ Lỗi mạng WebSocket:", error);
+                ws.close();
+            };
+        }
+
+        // Kích hoạt máy bơm chạy lần đầu tiên khi mở web
+        connectWebSocket();
+
+        
+        
 
         // Hàm tính tổng doanh thu và hiển thị ra chữ
         async function getRevenue() {

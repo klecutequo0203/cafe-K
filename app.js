@@ -1,6 +1,24 @@
-const ws = new WebSocket("wss://cafe-k.onrender.com/ws");
+let ws;
 
-ws.onopen = () => console.log("✅ Đã kết nối WebSocket!");
+function connectWebSocket() {
+    ws = new WebSocket("wss://cafe-k.onrender.com/ws");
+
+    ws.onopen = () => console.log("✅ Đã kết nối WebSocket!");
+
+    ws.onclose = () => {
+        console.log("⚠️ Mất kết nối. Đang kết nối lại...");
+        setTimeout(connectWebSocket, 3000);
+    };
+
+    ws.onerror = (error) => {
+        console.error("Lỗi WebSocket:", error);
+        ws.close();
+    };
+}
+
+// Khởi động kết nối
+connectWebSocket();
+
 
 let menuItems = []; 
 let cart = [];
