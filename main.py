@@ -82,10 +82,20 @@ def add_menu_item(item: MenuItem):
 def get_total_revenue():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT SUM(total_amount) FROM orders")
+    
+    # Lệnh SQL mới: Tính tổng tiền nhưng chỉ lấy các đơn hàng của NGÀY HÔM NAY (theo giờ Việt Nam)
+    cursor.execute("""
+        SELECT SUM(total_amount) 
+        FROM orders 
+        WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') 
+            = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')
+    """)
+    
     total = cursor.fetchone()[0]
     cursor.close()
     conn.close()
+    
+    # Nếu chưa có đơn nào trong ngày, trả về 0
     return {"total_revenue": total if total else 0}
 
 class ConnectionManager:
