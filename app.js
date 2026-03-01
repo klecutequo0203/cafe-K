@@ -33,11 +33,14 @@ function submitNewItem() {
 
 // Gửi lệnh lưu món mới lên Server
 async function addNewMenuItem(name, price, category) {
-    await fetch("http://localhost:8000/api/menu", {
+    await fetch("https://cafe-k.onrender.com/api/menu", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json" 
+        },
         body: JSON.stringify({ name, price, category })
     });
+    
     fetchMenuFromServer(); // Load lại menu ngay
 }
 
