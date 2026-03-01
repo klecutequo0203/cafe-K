@@ -91,12 +91,21 @@
                     itemsHtml += `<li>🔸 ${item.quantity} x ${item.name}</li>`;
                 });
 
+                // (Nằm trong file barista.html)
+                // Tạo đoạn mã HTML cho ghi chú (nếu có chữ thì mới hiện)
+                let noteHtml = "";
+                if (data.note && data.note.trim() !== "") {
+                    noteHtml = `<div style="background: #f39c12; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; font-weight: bold; font-size: 16px;">
+                        📝 Ghi chú: ${data.note}
+                    </div>`;
+                }
+
                 ticket.innerHTML = `
                     <div class="order-header">
                         <span>🛎️ ${data.table}</span>
                         <span style="font-size: 14px; color: #7f8c8d;">${timeStr}</span>
                     </div>
-                    <ul class="order-items">
+                    ${noteHtml} <ul class="order-items">
                         ${itemsHtml}
                     </ul>
                     <button class="btn-done" onclick="this.parentElement.remove()">ĐÃ LÀM XONG ✔️</button>
