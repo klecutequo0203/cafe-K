@@ -10,7 +10,13 @@
     <div class="app-container">
         
         <div class="left-panel">
-            <div class="admin-box">
+            <div class="menu-box">
+                <h2>Thực Đơn Màn Hình Cảm Ứng</h2>
+                <div id="menu-container" class="menu-grid">
+                    </div>
+            </div>
+
+            <div class="admin-box" style="margin-top: 40px; border-top: 2px dashed #ccc; padding-top: 20px;">
                 <h3>Thêm Món Mới (Dành cho quản lý)</h3>
                 <div class="input-group">
                     <input type="text" id="item-name" placeholder="Tên món (VD: Bạc xỉu)">
@@ -18,12 +24,6 @@
                     <input type="text" id="item-category" placeholder="Nhóm (VD: Coffee)">
                     <button onclick="submitNewItem()" class="btn-add">+ Thêm vào Menu</button>
                 </div>
-            </div>
-
-            <div class="menu-box">
-                <h2>Thực Đơn Màn Hình Cảm Ứng</h2>
-                <div id="menu-container" class="menu-grid">
-                    </div>
             </div>
         </div>
 
@@ -52,11 +52,11 @@
                 </select>
             </div>
             
-            <ul id="cart-list">
+            <ul id="cart-list" style="min-height: 120px; background: #fff; border-radius: 8px; padding: 15px; margin: 15px 0; border: 2px dashed #bdc3c7;">
                 </ul>
             
             <div class="order-notes">
-                <input type="text" id="order-note" placeholder="Ghi chú (VD: ít đá, ít ngọt...)">
+                <input type="text" id="order-note" placeholder="📝 Ghi chú (VD: ít đá, ít ngọt...)">
             </div>
             
             <div class="cart-summary">
