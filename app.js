@@ -1,4 +1,4 @@
-const ws = new WebSocket("ws://localhost:8000/ws");
+const ws = new WebSocket("wss://cafe-k.onrender.com/ws");
 
 ws.onopen = () => console.log("✅ Đã kết nối WebSocket!");
 
@@ -7,7 +7,7 @@ let cart = [];
 
 // Tải menu từ Server
 async function fetchMenuFromServer() {
-    const response = await fetch("http://localhost:8000/api/menu");
+    const response = await fetch("https://cafe-k.onrender.com/api/menu");
     if (response.ok) {
         menuItems = await response.json();
         renderMenuUI(); // Vẽ lại giao diện
@@ -105,25 +105,3 @@ function sendOrder(tableName) {
 
 // Chạy lần đầu tiên khi mở web
 fetchMenuFromServer();
-// ==========================================
-// PHẦN 4: THỐNG KÊ DOANH THU (Dành cho Quản lý)
-// ==========================================
-async function checkRevenue() {
-    try {
-        // Gửi yêu cầu lấy doanh thu từ Python
-        const response = await fetch("http://localhost:8000/api/revenue");
-        
-        if (response.ok) {
-            const data = await response.json();
-            // Định dạng số tiền có dấu phẩy cho dễ nhìn
-            const formattedRevenue = data.total_revenue.toLocaleString("vi-VN");
-            
-            // Hiển thị lên màn hình
-            document.getElementById("revenue-display").innerText = formattedRevenue;
-            alert(`Tổng doanh thu hiện tại là: ${formattedRevenue} VNĐ`);
-        }
-    } catch (error) {
-        console.error("❌ Lỗi khi tải doanh thu:", error);
-        alert("Không thể kết nối với máy chủ để lấy doanh thu!");
-    }
-}

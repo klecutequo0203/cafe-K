@@ -18,7 +18,7 @@ app.add_middleware(
 )
 
 # ĐƯỜNG LINK NEON CỦA BẠN
-DATABASE_URL = "postgresql://neondb_owner:npg_KEn3RW5jfZcL@ep-delicate-leaf-aie33mol-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
+DATABASE_URL = "postgresql://neondb_owner:npg_KEn3RW5jfZcL@ep-delicate-leaf-aie33mol-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 def get_db_connection():
     # Hàm này giúp kết nối tới két sắt Neon trên mây
