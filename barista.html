@@ -44,7 +44,7 @@
 
     <script>
         // Mở kết nối "bộ đàm" với máy chủ Python
-        const ws = new WebSocket("ws://localhost:8000/ws");
+        const ws = new WebSocket("wss://cafe-k.onrender.com/ws");
         const container = document.getElementById("orders-container");
 
         ws.onopen = () => console.log("✅ Quầy pha chế đã trực tuyến!");
