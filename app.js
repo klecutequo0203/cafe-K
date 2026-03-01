@@ -87,23 +87,24 @@ function updateCartUI() {
     document.getElementById("total-price").innerText = calculateTotal().toLocaleString("vi-VN");
 }
 
-// Gửi order qua WebSocket (Đã cập nhật tự động lấy số bàn)
+// Gửi order qua WebSocket (Đã cập nhật tính năng Ghi chú)
 function sendOrder() {
     if (cart.length === 0) return alert("Chưa chọn món nào!");
     
-    // Lấy giá trị từ ô chọn tầng và chọn số bàn
     const floor = document.getElementById("floor-select").value;
     const tableNum = document.getElementById("table-select").value;
-    
-    // Ghép lại thành tên bàn. VD: "Trệt - Bàn 3"
     const finalTableName = `${floor} - Bàn ${tableNum}`; 
+    
+    // Lấy nội dung khách dặn dò
+    const noteContent = document.getElementById("order-note").value;
     
     const orderData = { 
         type: "NEW_ORDER", 
         table: finalTableName, 
         items: cart,
         totalAmount: calculateTotal(), 
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString(),
+        note: noteContent // Bỏ thêm tờ giấy ghi chú vào gói hàng!
     };
     
     ws.send(JSON.stringify(orderData));
@@ -111,6 +112,8 @@ function sendOrder() {
     
     cart = [];
     updateCartUI();
+    // Xóa trắng ô ghi chú để đón khách tiếp theo
+    document.getElementById("order-note").value = "";
 }
 
 // Chạy lần đầu tiên khi mở web

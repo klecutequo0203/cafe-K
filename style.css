@@ -103,3 +103,18 @@ button {
     min-width: 80px; /* Độ rộng ô chọn */
     cursor: pointer;
 }
+
+/* ==========================================
+   GIAO DIỆN Ô GHI CHÚ
+   ========================================== */
+.order-notes {
+    margin: 15px 0;
+}
+.order-notes input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+    font-size: 15px;
+    box-sizing: border-box; /* Giúp input không bị tràn ra ngoài khung */
+}
