@@ -1,8 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import sqlite3
+import psycopg2 # Thay cho sqlite3
+from psycopg2.extras import RealDictCursor
 import json
+import os
 
 app = FastAPI()
 
@@ -15,39 +17,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==========================================
-# 1. CẤU HÌNH CƠ SỞ DỮ LIỆU SQLITE (Sổ cái)
-# ==========================================
+# ĐƯỜNG LINK NEON CỦA BẠN
+DATABASE_URL = "postgresql://neondb_owner:npg_KEn3RW5jfZcL@ep-delicate-leaf-aie33mol-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
+
+def get_db_connection():
+    # Hàm này giúp kết nối tới két sắt Neon trên mây
+    return psycopg2.connect(DATABASE_URL)
+
 def init_db():
-    conn = sqlite3.connect("coffee_shop.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
-    # Bảng menu
+    # Tạo bảng menu (PostgreSQL dùng cú pháp SERIAL thay cho AUTOINCREMENT)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS menu (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             price INTEGER NOT NULL,
             category TEXT NOT NULL
         )
     ''')
-    # Bảng lịch sử đơn hàng
+    # Tạo bảng orders
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             table_name TEXT NOT NULL,
             items_summary TEXT NOT NULL,
             total_amount INTEGER NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     conn.commit()
+    cursor.close()
     conn.close()
 
 init_db()
 
-# ==========================================
-# 2. QUẢN LÝ THỰC ĐƠN (REST API)
-# ==========================================
 class MenuItem(BaseModel):
     name: str
     price: int
@@ -55,51 +59,43 @@ class MenuItem(BaseModel):
 
 @app.get("/api/menu")
 def get_menu():
-    conn = sqlite3.connect("coffee_shop.db")
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    # RealDictCursor giúp trả về dữ liệu dạng Dictionary giống JSON
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute("SELECT id, name, price, category FROM menu")
     items = cursor.fetchall()
+    cursor.close()
     conn.close()
-    return [{"id": row[0], "name": row[1], "price": row[2], "category": row[3]} for row in items]
+    return items
 
 @app.post("/api/menu")
 def add_menu_item(item: MenuItem):
-    conn = sqlite3.connect("coffee_shop.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO menu (name, price, category) VALUES (?, ?, ?)", (item.name, item.price, item.category))
+    cursor.execute("INSERT INTO menu (name, price, category) VALUES (%s, %s, %s)", (item.name, item.price, item.category))
     conn.commit()
+    cursor.close()
     conn.close()
-    return {"message": f"Đã thêm món {item.name} thành công!"}
+    return {"message": "Success"}
 
-# API Lấy tổng doanh thu (Dành cho chủ quán)
 @app.get("/api/revenue")
 def get_total_revenue():
-    conn = sqlite3.connect("coffee_shop.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
-    # Lệnh SQL SUM để cộng tất cả các giá trị trong cột total_amount
     cursor.execute("SELECT SUM(total_amount) FROM orders")
     total = cursor.fetchone()[0]
+    cursor.close()
     conn.close()
-    
-    # Nếu chưa bán được đơn nào, SQL sẽ trả về None, ta chuyển nó thành 0
-    if total is None:
-        total = 0
-        
-    return {"total_revenue": total}
-# ==========================================
-# 3. WEBSOCKET (Đường truyền thời gian thực)
-# ==========================================
+    return {"total_revenue": total if total else 0}
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
-
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
-
     async def broadcast(self, message: str):
         for connection in self.active_connections:
             await connection.send_text(message)
@@ -112,29 +108,21 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            
-            # Xử lý ghi sổ doanh thu
             try:
                 order_dict = json.loads(data)
                 if order_dict.get("type") == "NEW_ORDER":
                     items_str = ", ".join([f"{item['quantity']}x {item['name']}" for item in order_dict['items']])
-                    total_money = order_dict['totalAmount']
-                    table = order_dict.get('table', 'Bàn Khách')
-                    
-                    conn = sqlite3.connect("coffee_shop.db")
+                    conn = get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute(
-                        "INSERT INTO orders (table_name, items_summary, total_amount) VALUES (?, ?, ?)", 
-                        (table, items_str, total_money)
+                        "INSERT INTO orders (table_name, items_summary, total_amount) VALUES (%s, %s, %s)", 
+                        (order_dict.get('table', 'Bàn Khách'), items_str, order_dict['totalAmount'])
                     )
                     conn.commit()
+                    cursor.close()
                     conn.close()
-                    print(f"💰 Đã ghi sổ doanh thu: {table} - {total_money} VNĐ")
             except Exception as e:
-                print(f"❌ Lỗi xử lý ghi sổ: {e}")
-
-            # Phát lại đơn hàng cho quầy pha chế
+                print(f"Error: {e}")
             await manager.broadcast(data)
-            
     except WebSocketDisconnect:
         manager.disconnect(websocket)
