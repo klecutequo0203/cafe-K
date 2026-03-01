@@ -52,3 +52,27 @@ button {
 .cart-summary { border-top: 2px dashed #ccc; padding-top: 15px; text-align: right; }
 .btn-send { background: #2ecc71; color: white; width: 100%; padding: 15px; font-size: 18px; margin-top: 10px;}
 .btn-send:hover { background: #27ae60; }
+/* ==========================================
+   TỐI ƯU CHO MÀN HÌNH ĐIỆN THOẠI (Mobile Responsive)
+   ========================================== */
+@media (max-width: 768px) {
+    .app-container {
+        flex-direction: column; /* Xếp dọc các khối thay vì nằm ngang */
+    }
+    
+    .left-panel, .right-panel {
+        width: 100%; /* Cho phép chiếm trọn chiều ngang màn hình */
+    }
+
+    .menu-grid {
+        grid-template-columns: repeat(2, 1fr); /* Rút lại hiển thị 2 món/hàng cho nút to ra dễ bấm */
+    }
+
+    /* Đẩy giỏ hàng lên trên cùng để nhân viên dễ thấy khi vuốt điện thoại */
+    .app-container {
+        display: flex;
+    }
+    .right-panel {
+        order: -1; 
+    }
+}
