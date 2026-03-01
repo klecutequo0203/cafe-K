@@ -108,3 +108,23 @@ function sendOrder(tableName) {
 
 // Chạy lần đầu tiên khi mở web
 fetchMenuFromServer();
+
+// ==========================================
+// TÍNH NĂNG CHỐT SỔ (XEM TỔNG DOANH THU)
+// ==========================================
+async function getRevenue() {
+    try {
+        const response = await fetch("https://cafe-k.onrender.com/api/revenue");
+        if (response.ok) {
+            const data = await response.json();
+            // Nếu data.total_revenue bị null (chưa có đơn nào), gán mặc định là 0
+            const total = data.total_revenue || 0; 
+            alert(`💰 TỔNG DOANH THU ĐẾN HIỆN TẠI:\n${total.toLocaleString("vi-VN")} đ`);
+        } else {
+            alert("❌ Lỗi: Không thể lấy được dữ liệu chốt sổ!");
+        }
+    } catch (error) {
+        console.error("Lỗi kết nối:", error);
+        alert("❌ Lỗi mạng: Không kết nối được tới máy chủ Render!");
+    }
+}
