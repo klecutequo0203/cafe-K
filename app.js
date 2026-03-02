@@ -62,7 +62,7 @@ async function addNewMenuItem(name, price, category) {
     fetchMenuFromServer(); // Load lại menu ngay
 }
 
-// Hàm vẽ các nút bấm thực đơn lên màn hình HTML
+// Hàm vẽ các nút bấm thực đơn lên màn hình HTML (Bản nâng cấp có nút Xóa)
 function renderMenuUI() {
     const container = document.getElementById("menu-container");
     container.innerHTML = ""; // Xóa các nút cũ đi
@@ -70,12 +70,52 @@ function renderMenuUI() {
     menuItems.forEach(item => {
         const btn = document.createElement("button");
         btn.className = "menu-item-btn";
-        // Định dạng số tiền có dấu phẩy cho dễ đọc
+        btn.style.position = "relative"; // Bật chế độ để căn chỉnh nút Xóa
+        
+        // Nội dung tên món và giá tiền
         btn.innerHTML = `<strong>${item.name}</strong><br><br>${item.price.toLocaleString("vi-VN")} đ`;
-        // Khi bấm vào nút này thì gọi hàm thêm vào giỏ hàng
+        
+        // Khi bấm vào nền của nút thì gọi hàm thêm vào giỏ hàng
         btn.onclick = () => addToCart(item.id, item.name, item.price);
+
+        // --- CHẾ TẠO NÚT XÓA (❌) GÓC TRÊN CÙNG BÊN PHẢI ---
+        const deleteBtn = document.createElement("span");
+        deleteBtn.innerHTML = "❌";
+        deleteBtn.style.position = "absolute";
+        deleteBtn.style.top = "5px";
+        deleteBtn.style.right = "5px";
+        deleteBtn.style.background = "transparent";
+        deleteBtn.style.cursor = "pointer";
+        deleteBtn.style.fontSize = "14px";
+        
+        // Lệnh kích hoạt khi bấm chữ ❌
+        deleteBtn.onclick = (event) => {
+            event.stopPropagation(); // Lệnh cực kỳ quan trọng: Ngăn không cho "bấm nhầm" nảy món vào giỏ hàng
+            deleteMenuItem(item.id);
+        };
+
+        // Gắn nút Xóa vào nút Món ăn, rồi gắn tất cả lên màn hình
+        btn.appendChild(deleteBtn);
         container.appendChild(btn);
     });
+}
+
+// Hàm gửi lệnh Xóa lên Server Python
+async function deleteMenuItem(itemId) {
+    // Bật hộp thoại hỏi lại cho chắc ăn
+    const confirmDelete = confirm("⚠️ Bạn có chắc chắn muốn xóa món này khỏi Menu không?");
+    if (!confirmDelete) return;
+
+    try {
+        await fetch(`https://cafe-k.onrender.com/api/menu/${itemId}`, {
+            method: "DELETE"
+        });
+        
+        alert("Đã xóa món thành công!");
+        fetchMenuFromServer(); // Gọi điện thoại tải lại danh sách món mới nhất
+    } catch (error) {
+        alert("Lỗi mạng: Không thể xóa món!");
+    }
 }
 
 // Thêm món vào giỏ

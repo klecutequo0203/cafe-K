@@ -98,6 +98,21 @@ def get_total_revenue():
     # Nếu chưa có đơn nào trong ngày, trả về 0
     return {"total_revenue": total if total else 0}
 
+# API Xóa món ăn khỏi Menu
+@app.delete("/api/menu/{item_id}")
+def delete_menu_item(item_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Lệnh SQL xóa món dựa vào ID
+    cursor.execute("DELETE FROM menu WHERE id = %s", (item_id,))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
+    return {"message": "Đã xóa món thành công"}
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
