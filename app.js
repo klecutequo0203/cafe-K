@@ -118,12 +118,93 @@ async function deleteMenuItem(itemId) {
     }
 }
 
-// Thêm món vào giỏ
+// 1. HÀM THÊM MÓN VÀO GIỎ (CỘNG)
 function addToCart(itemId, itemName, itemPrice) {
     const existing = cart.find(i => i.id === itemId);
-    if (existing) existing.quantity += 1;
-    else cart.push({ id: itemId, name: itemName, price: itemPrice, quantity: 1 });
+    if (existing) {
+        existing.quantity += 1; // Nếu đã có trong giỏ thì cộng thêm 1
+    } else {
+        cart.push({ id: itemId, name: itemName, price: itemPrice, quantity: 1 });
+    }
     updateCartUI();
+}
+
+// 2. HÀM XỬ LÝ NÚT TRỪ (GIẢM ĐÚNG 1 SỐ LƯỢNG MỖI LẦN BẤM)
+function decreaseQuantity(itemId) {
+    const itemIndex = cart.findIndex(i => i.id === itemId);
+    
+    if (itemIndex !== -1) {
+        // Nếu số lượng đang lớn hơn 1 -> Chỉ trừ đi 1 ly
+        if (cart[itemIndex].quantity > 1) {
+            cart[itemIndex].quantity -= 1; 
+        } 
+        // Nếu số lượng đang là 1 -> Xóa hoàn toàn món đó khỏi giỏ
+        else {
+            cart.splice(itemIndex, 1); 
+        }
+        updateCartUI(); // Vẽ lại màn hình ngay lập tức
+    }
+}
+
+// 3. HÀM VẼ LẠI GIỎ HÀNG LÊN MÀN HÌNH HTML
+function updateCartUI() {
+    const cartList = document.getElementById("cart-list");
+    cartList.innerHTML = "";
+    
+    cart.forEach(item => {
+        const li = document.createElement("li");
+        li.style.display = "flex";
+        li.style.justifyContent = "space-between";
+        li.style.alignItems = "center";
+        li.style.padding = "10px 0";
+        li.style.borderBottom = "1px dashed #bdc3c7";
+
+        // Cột trái: Tên món + số lượng
+        const info = document.createElement("div");
+        info.innerHTML = `<strong style="font-size: 16px;">${item.name}</strong><br><span style="color: #7f8c8d; font-size: 14px;">${item.price.toLocaleString("vi-VN")} đ (x${item.quantity})</span>`;
+
+        // Cột phải: 2 Nút bấm Trừ và Cộng
+        const actionBox = document.createElement("div");
+
+        // --- Nút Trừ (−) ---
+        const btnMinus = document.createElement("button");
+        btnMinus.innerText = "−";
+        btnMinus.style.width = "35px";
+        btnMinus.style.height = "35px";
+        btnMinus.style.background = "#e74c3c"; // Màu đỏ
+        btnMinus.style.color = "white";
+        btnMinus.style.border = "none";
+        btnMinus.style.borderRadius = "5px";
+        btnMinus.style.fontSize = "18px";
+        btnMinus.style.cursor = "pointer";
+        btnMinus.onclick = () => decreaseQuantity(item.id);
+
+        // --- Nút Cộng (+) ---
+        const btnPlus = document.createElement("button");
+        btnPlus.innerText = "+";
+        btnPlus.style.width = "35px";
+        btnPlus.style.height = "35px";
+        btnPlus.style.background = "#27ae60"; // Màu xanh lá
+        btnPlus.style.color = "white";
+        btnPlus.style.border = "none";
+        btnPlus.style.borderRadius = "5px";
+        btnPlus.style.fontSize = "18px";
+        btnPlus.style.cursor = "pointer";
+        btnPlus.style.marginLeft = "10px"; // Cách nút trừ ra một chút cho dễ bấm
+        btnPlus.onclick = () => addToCart(item.id, item.name, item.price);
+
+        // Lắp ráp mọi thứ vào
+        actionBox.appendChild(btnMinus);
+        actionBox.appendChild(btnPlus);
+        
+        li.appendChild(info);
+        li.appendChild(actionBox);
+        
+        cartList.appendChild(li);
+    });
+    
+    // Cập nhật lại dòng tổng tiền
+    document.getElementById("total-price").innerText = calculateTotal().toLocaleString("vi-VN");
 }
 
 // Tính tổng tiền
@@ -196,5 +277,32 @@ async function getRevenue() {
     } catch (error) {
         console.error("Lỗi kết nối:", error);
         alert("❌ Lỗi mạng: Không kết nối được tới máy chủ Render!");
+    }
+}
+
+// ==========================================
+// HÀM XÓA MÓN ĂN KHỎI MENU
+// ==========================================
+async function deleteMenuItem(itemId) {
+    // Bật hộp thoại hỏi lại cho chắc ăn, lỡ tay bấm nhầm thì còn cứu được
+    const confirmDelete = confirm("⚠️ Bạn có chắc chắn muốn xóa vĩnh viễn món này khỏi Menu không?");
+    if (!confirmDelete) return; // Nếu bấm Hủy (Cancel) thì dừng lại ngay
+
+    try {
+        // Gửi lệnh DELETE thẳng lên Render
+        const response = await fetch(`https://cafe-k.onrender.com/api/menu/${itemId}`, {
+            method: "DELETE"
+        });
+        
+        if (response.ok) {
+            alert("✅ Đã xóa món thành công!");
+            // Gọi hàm tải lại menu để màn hình tự động cập nhật (mất nút món ăn đó đi)
+            fetchMenuFromServer(); 
+        } else {
+            alert("❌ Lỗi: Máy chủ từ chối xóa món này!");
+        }
+    } catch (error) {
+        console.error("Lỗi xóa món:", error);
+        alert("❌ Lỗi mạng: Không thể kết nối tới máy chủ Render!");
     }
 }
