@@ -1,75 +1,153 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import requests
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import psycopg2 # Thay cho sqlite3
+from psycopg2.extras import RealDictCursor
+import json
 import os
-from dotenv import load_dotenv
 
-# Tải file .env
-load_dotenv()
+app = FastAPI()
 
-app = Flask(__name__)
-CORS(app)
+# Cấu hình CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Lấy API key của hệ thống Chất lượng không khí từ file .env
-WAQI_KEY = os.getenv('WAQI_API_KEY')
+# ĐƯỜNG LINK NEON CỦA BẠN
+DATABASE_URL = "postgresql://neondb_owner:npg_KEn3RW5jfZcL@ep-delicate-leaf-aie33mol-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
-@app.route('/api/weather', methods=['GET'])
-def get_weather_data():
-    lat = request.args.get('lat')
-    lon = request.args.get('lon')
+def get_db_connection():
+    # Hàm này giúp kết nối tới két sắt Neon trên mây
+    return psycopg2.connect(DATABASE_URL)
 
-    if not lat or not lon:
-        return jsonify({"error": "Thiếu thông tin tọa độ"}), 400
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # Tạo bảng menu (PostgreSQL dùng cú pháp SERIAL thay cho AUTOINCREMENT)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS menu (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            category TEXT NOT NULL
+        )
+    ''')
+    # Tạo bảng orders
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            table_name TEXT NOT NULL,
+            items_summary TEXT NOT NULL,
+            total_amount INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    cursor.close()
+    conn.close()
 
+init_db()
+
+class MenuItem(BaseModel):
+    name: str
+    price: int
+    category: str
+
+@app.get("/api/menu")
+def get_menu():
+    conn = get_db_connection()
+    # RealDictCursor giúp trả về dữ liệu dạng Dictionary giống JSON
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("SELECT id, name, price, category FROM menu")
+    items = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return items
+
+@app.post("/api/menu")
+def add_menu_item(item: MenuItem):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO menu (name, price, category) VALUES (%s, %s, %s)", (item.name, item.price, item.category))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return {"message": "Success"}
+
+@app.get("/api/revenue")
+def get_total_revenue():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Lệnh SQL mới: Tính tổng tiền nhưng chỉ lấy các đơn hàng của NGÀY HÔM NAY (theo giờ Việt Nam)
+    cursor.execute("""
+        SELECT SUM(total_amount) 
+        FROM orders 
+        WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') 
+            = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')
+    """)
+    
+    total = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
+    
+    # Nếu chưa có đơn nào trong ngày, trả về 0
+    return {"total_revenue": total if total else 0}
+
+# API Xóa món ăn khỏi Menu
+@app.delete("/api/menu/{item_id}")
+def delete_menu_item(item_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Lệnh SQL xóa món dựa vào ID
+    cursor.execute("DELETE FROM menu WHERE id = %s", (item_id,))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
+    return {"message": "Đã xóa món thành công"}
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
     try:
-        # 1. API THỜI TIẾT (Sử dụng cấu trúc link bạn vừa tìm được trên Open-Meteo)
-        # Đã thay số 52.52 thành {lat} và 13.40 thành {lon}
-        weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,weather_code&hourly=temperature_2m,relative_humidity_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto"
-        weather_res = requests.get(weather_url).json()
-
-        # 2. API HẢI VĂN (Độ cao sóng)
-        marine_url = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&current=wave_height"
-        marine_res = requests.get(marine_url).json()
-        
-        wave_height = marine_res.get('current', {}).get('wave_height')
-        if wave_height is None:
-            wave_height = "Không có dữ liệu biển"
-
-        # 3. API CHẤT LƯỢNG KHÔNG KHÍ (WAQI)
-        waqi_url = f"https://api.waqi.info/feed/geo:{lat};{lon}/?token={WAQI_KEY}"
-        waqi_res = requests.get(waqi_url).json()
-
-        aqi_value = "Đang cập nhật"
-        if waqi_res.get('status') == 'ok':
-            aqi_value = waqi_res['data']['aqi']
-
-        # 4. ĐÓNG GÓI JSON GỬI VỀ CHO TRÌNH DUYỆT
-        final_data = {
-            "current": {
-                "temperature": weather_res['current']['temperature_2m'],
-                "humidity": weather_res['current']['relative_humidity_2m'],
-                "weather_code": weather_res['current']['weather_code'],
-                "wave_height": wave_height,
-                "aqi": aqi_value
-            },
-            "hourly": {
-                "time": weather_res['hourly']['time'][:24],
-                "temperature": weather_res['hourly']['temperature_2m'][:24],
-                "weather_code": weather_res['hourly']['weather_code'][:24]
-            },
-            "daily": {
-                "time": weather_res['daily']['time'],
-                "temp_max": weather_res['daily']['temperature_2m_max'],
-                "temp_min": weather_res['daily']['temperature_2m_min'],
-                "weather_code": weather_res['daily']['weather_code']
-            }
-        }
-
-        return jsonify(final_data)
-
-    except Exception as e:
-        print("Lỗi Backend:", e)
-        return jsonify({"error": "Không thể lấy dữ liệu từ các máy chủ ngoài"}), 500
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+        while True:
+            data = await websocket.receive_text()
+            try:
+                order_dict = json.loads(data)
+                if order_dict.get("type") == "NEW_ORDER":
+                    items_str = ", ".join([f"{item['quantity']}x {item['name']}" for item in order_dict['items']])
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT INTO orders (table_name, items_summary, total_amount) VALUES (%s, %s, %s)", 
+                        (order_dict.get('table', 'Bàn Khách'), items_str, order_dict['totalAmount'])
+                    )
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+            except Exception as e:
+                print(f"Error: {e}")
+            await manager.broadcast(data)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
